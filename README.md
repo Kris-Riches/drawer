@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/Kris-Riches/drawer/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Kris-Riches/drawer?style=flat-square&color=111111&label=stars"></a>
   <img alt="Version v0.2" src="https://img.shields.io/badge/version-v0.2-111111?style=flat-square">
-  <img alt="Regression: 102 passed, 2 opt-in skipped" src="https://img.shields.io/badge/regression-102%20passed%20%7C%202%20opt--in%20skipped-111111?style=flat-square">
+  <img alt="Regression: 190 passed, 2 opt-in skipped" src="https://img.shields.io/badge/regression-190%20passed%20%7C%202%20opt--in%20skipped-111111?style=flat-square">
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-111111?style=flat-square">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-111111?style=flat-square"></a>
 </p>
@@ -137,7 +137,7 @@ generated/            可删除重建的 Registry/Search   （本地运行数据
 
 Drawer 当前为 **V0.2 GO**：公开严格 UTF-8 文本的单机闭环、Context 生命周期、六段不可变溯源、中英文 Search、外部不可信资料的 data-only 处理，以及可恢复重建均已通过验收。
 
-最后一次公开前扩大回归共 104 项：**102 passed、2 个 24-way 压力测试按设计 opt-in skipped、0 fail/error**。动态对象计数、build identity 与 freshness 请始终以 `.\kb.ps1 status` 为准。
+最近一次完整发现回归共 192 项：**190 passed、2 个 24-way 压力测试按设计 opt-in skipped、0 fail/error**。动态对象计数、build identity 与 freshness 请始终以 `.\kb.ps1 status` 为准。
 
 当前明确支持：
 
@@ -163,7 +163,7 @@ Drawer 当前为 **V0.2 GO**：公开严格 UTF-8 文本的单机闭环、Contex
 
 ```powershell
 $env:PYTHONPATH = (Resolve-Path '.\src').Path
-python -B -m unittest tests.test_release tests.test_cli_release tests.test_workflow tests.test_bootstrap
+python -B -m unittest tests.test_temp_support tests.test_release tests.test_cli_release tests.test_workflow tests.test_bootstrap
 ```
 
 运行全部测试：
@@ -172,6 +172,14 @@ python -B -m unittest tests.test_release tests.test_cli_release tests.test_workf
 $env:PYTHONPATH = (Resolve-Path '.\src').Path
 python -B -m unittest discover -s tests -p 'test_*.py'
 ```
+
+测试临时目录默认由 Python 按当前操作系统和执行环境选择，不依赖固定盘符。只有在 ACL、junction 等文件系统测试需要指定位置时，才设置项目专用覆盖变量：
+
+```powershell
+$env:DRAWER_TEST_TMPDIR = Join-Path $env:TEMP 'drawer-tests'
+```
+
+覆盖目录不可写时，测试会立即给出明确错误；取消该变量即可恢复系统默认临时目录。
 
 架构与事实边界见 [docs/architecture.md](docs/architecture.md)。
 
@@ -291,7 +299,7 @@ Runtime data, internal progress notes, and acceptance evidence are excluded by `
 
 Drawer is currently **V0.2 GO**. Its single-machine public-text loop, Context lifecycle, six-stage immutable provenance, Chinese and English Search, data-only treatment of untrusted external material, and recoverable Projection rebuild have passed acceptance.
 
-The last expanded regression before the public release ran 104 tests: **102 passed, two 24-way stress tests remained opt-in skipped, and there were no failures or errors**. Live object counts, build identity, and freshness must always come from `.\kb.ps1 status`.
+The latest full discovery regression ran 192 tests: **190 passed, two 24-way stress tests remained opt-in skipped, and there were no failures or errors**. Live object counts, build identity, and freshness must always come from `.\kb.ps1 status`.
 
 Supported today:
 
@@ -317,7 +325,7 @@ The core uses only the Python standard library. Run the core tests:
 
 ```powershell
 $env:PYTHONPATH = (Resolve-Path '.\src').Path
-python -B -m unittest tests.test_release tests.test_cli_release tests.test_workflow tests.test_bootstrap
+python -B -m unittest tests.test_temp_support tests.test_release tests.test_cli_release tests.test_workflow tests.test_bootstrap
 ```
 
 Run the complete test suite:
@@ -326,6 +334,14 @@ Run the complete test suite:
 $env:PYTHONPATH = (Resolve-Path '.\src').Path
 python -B -m unittest discover -s tests -p 'test_*.py'
 ```
+
+Python chooses the test temporary directory for the current operating system and execution environment, so the suite does not depend on a fixed drive. Set the project-specific override only when filesystem tests such as ACL or junction checks need a particular location:
+
+```powershell
+$env:DRAWER_TEST_TMPDIR = Join-Path $env:TEMP 'drawer-tests'
+```
+
+An unwritable override fails immediately with a clear error. Unset the variable to restore the system default temporary directory.
 
 See [docs/architecture.md](docs/architecture.md) for the architecture and source-of-truth boundaries.
 

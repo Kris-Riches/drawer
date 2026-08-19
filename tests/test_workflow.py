@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import tempfile
 import unittest
 from contextlib import redirect_stdout
 from io import StringIO
@@ -11,12 +10,12 @@ from unittest import mock
 from kb2 import bootstrap
 from kb2.cli import main
 from kb2.result import KbError
+from tests._temp_support import temporary_directory
 
 
 class PublishTextWorkflowTests(unittest.TestCase):
     def setUp(self) -> None:
-        Path(r"D:\tmp").mkdir(parents=True, exist_ok=True)
-        self.temp = tempfile.TemporaryDirectory(prefix="kb2-workflow-root-", dir=r"D:\tmp")
+        self.temp = temporary_directory(prefix="kb2-workflow-root-")
         self.root = Path(self.temp.name)
         (self.root / "kb.yaml").write_text(
             "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\nprotocol: PROTOCOL.md\n",

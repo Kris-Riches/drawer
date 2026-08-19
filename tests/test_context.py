@@ -8,7 +8,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import threading
 import unittest
 from unittest import mock
@@ -17,12 +16,12 @@ import kb2.core as core
 import kb2.context as context_core
 import kb2.cli as cli
 from kb2.core import KbError, correct, explain, ingest_text, organize
+from tests._temp_support import temporary_directory
 
 
 class ContextCurrentStateSliceTests(unittest.TestCase):
     def setUp(self) -> None:
-        Path(r"D:\tmp").mkdir(parents=True, exist_ok=True)
-        self.temp = tempfile.TemporaryDirectory(prefix="kb2-context-root-", dir=r"D:\tmp")
+        self.temp = temporary_directory(prefix="kb2-context-root-")
         self.root = Path(self.temp.name)
         (self.root / "kb.yaml").write_text(
             "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -543,7 +542,7 @@ class ContextCurrentStateSliceTests(unittest.TestCase):
         update_path = update_dirs[0] / "update.json"
         update_path.write_bytes(b'{"schema":')
         environment = os.environ.copy()
-        environment["PYTHONPATH"] = str(Path(__file__).resolve().parents[1])
+        environment["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
         environment["PYTHONUTF8"] = "1"
         environment["PYTHONDONTWRITEBYTECODE"] = "1"
         result = subprocess.run(
@@ -791,8 +790,7 @@ class ContextCurrentStateSliceTests(unittest.TestCase):
         self.assertFalse(core._secret_reasons(context_path.read_bytes()))
 
         self.temp.cleanup()
-        Path(r"D:\tmp").mkdir(parents=True, exist_ok=True)
-        self.temp = tempfile.TemporaryDirectory(prefix="kb2-context-recovery-reappearance-", dir=r"D:\tmp")
+        self.temp = temporary_directory(prefix="kb2-context-recovery-reappearance-")
         self.root = Path(self.temp.name)
         (self.root / "kb.yaml").write_text(
             "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",

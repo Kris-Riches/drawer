@@ -6,18 +6,17 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-import tempfile
 import unittest
 from unittest import mock
 
 import kb2.core as core
 from kb2.core import KbError, correct, explain, ingest_text, organize, recover_security_holds, status
+from tests._temp_support import temporary_directory
 
 
 class CaptureGardenSliceTests(unittest.TestCase):
     def setUp(self) -> None:
-        Path(r"D:\tmp").mkdir(parents=True, exist_ok=True)
-        self.temp = tempfile.TemporaryDirectory(prefix="kb2-test-root-", dir=r"D:\tmp")
+        self.temp = temporary_directory(prefix="kb2-test-root-")
         self.root = Path(self.temp.name)
         (self.root / "kb.yaml").write_text(
             "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -40,7 +39,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
         return snapshot
 
     def test_unanchored_old_library_shaped_directory_is_never_initialized_or_changed(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="old-library-shaped-", dir=r"D:\tmp") as old_name:
+        with temporary_directory(prefix="old-library-shaped-") as old_name:
             old = Path(old_name)
             (old / "notes").mkdir()
             (old / "notes" / "legacy.md").write_bytes("旧库内容".encode("utf-8"))
@@ -65,7 +64,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
         )
         for index, anchor in enumerate(invalid_anchors):
             with self.subTest(index=index):
-                with tempfile.TemporaryDirectory(prefix="invalid-kb-root-", dir=r"D:\tmp") as invalid_name:
+                with temporary_directory(prefix="invalid-kb-root-") as invalid_name:
                     invalid = Path(invalid_name)
                     (invalid / "kb.yaml").write_text(anchor, encoding="utf-8")
                     (invalid / "existing.bin").write_bytes(b"must-not-change")
@@ -322,7 +321,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
         }
         for field, value in mutations.items():
             with self.subTest(field=field):
-                with tempfile.TemporaryDirectory(prefix="kb2-applied-ovr-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-applied-ovr-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text("schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n", encoding="utf-8")
                     initial = ingest_text(root, "applied correction override")
@@ -405,7 +404,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
     def test_active_direct_override_drift_blocks_fast_path_and_explain(self) -> None:
         for operation in ("organize", "explain"):
             with self.subTest(operation=operation):
-                with tempfile.TemporaryDirectory(prefix="kb2-active-ovr-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-active-ovr-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text("schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n", encoding="utf-8")
                     initial = ingest_text(root, "active direct override")
@@ -459,7 +458,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
         note = self.root / "garden" / "notes" / ref.rsplit("/", 1)[1]
         note.write_bytes(note.read_bytes() + b"\nhuman edit\n")
         link = self.root / "governance" / "overrides" / "OVR-01KZPQC53JGD8174JZEEVACPJQ.yaml"
-        with tempfile.TemporaryDirectory(prefix="kb2-override-leaf-", dir=r"D:\tmp") as outside_name:
+        with temporary_directory(prefix="kb2-override-leaf-") as outside_name:
             outside = Path(outside_name)
             (outside / "sentinel.json").write_text("external override", encoding="utf-8")
             before = self._tree_snapshot(outside)
@@ -490,7 +489,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
         state_dir = self.root / "governance" / "organizer-state" / result["capture_ref"].removeprefix("capture://")
         base = state_dir / "base.md"
         base.rename(state_dir / "base-original.md")
-        with tempfile.TemporaryDirectory(prefix="kb2-base-leaf-", dir=r"D:\tmp") as outside_name:
+        with temporary_directory(prefix="kb2-base-leaf-") as outside_name:
             outside = Path(outside_name)
             (outside / "sentinel.bin").write_bytes(b"external base")
             before = self._tree_snapshot(outside)
@@ -520,7 +519,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
         metadata = json.loads((capture / "capture.json").read_text(encoding="utf-8"))
         payload = capture / "payload.bin"
         payload.rename(capture / "payload-original.bin")
-        with tempfile.TemporaryDirectory(prefix="kb2-payload-leaf-", dir=r"D:\tmp") as outside_name:
+        with temporary_directory(prefix="kb2-payload-leaf-") as outside_name:
             outside = Path(outside_name)
             (outside / "sentinel.bin").write_bytes(b"external payload")
             before = self._tree_snapshot(outside)
@@ -546,7 +545,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
     def test_explain_rejects_reparse_capture_and_override_leaves_before_read(self) -> None:
         for leaf_kind in ("capture", "override"):
             with self.subTest(leaf_kind=leaf_kind):
-                with tempfile.TemporaryDirectory(prefix="kb2-explain-leaf-root-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-explain-leaf-root-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text(
                         "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -564,7 +563,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
                         organize(root, ref)
                         link = next((root / "governance" / "overrides").glob("OVR-*.yaml"))
                         link.rename(link.parent / "override-original.yaml")
-                    with tempfile.TemporaryDirectory(prefix="kb2-explain-leaf-", dir=r"D:\tmp") as outside_name:
+                    with temporary_directory(prefix="kb2-explain-leaf-") as outside_name:
                         outside = Path(outside_name)
                         (outside / "sentinel.json").write_text("external explain leaf", encoding="utf-8")
                         before = self._tree_snapshot(outside)
@@ -951,7 +950,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
     def test_quarantine_owner_contract_rejects_schema_refs_and_traversal(self) -> None:
         for mutation in ("schema", "refs", "traversal"):
             with self.subTest(mutation=mutation):
-                with tempfile.TemporaryDirectory(prefix="kb2-q-owner-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-q-owner-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text("schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n", encoding="utf-8")
                     result = ingest_text(root, "quarantine owner safe")
@@ -998,7 +997,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
             "source-target",
         ):
             with self.subTest(mutation=mutation):
-                with tempfile.TemporaryDirectory(prefix="kb2-c-owner-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-c-owner-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text("schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n", encoding="utf-8")
                     initial = ingest_text(root, "correction owner target")
@@ -1069,7 +1068,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
         self.assertEqual(response["code"], "KB2_RECOVERY_UNRESOLVED")
         self.assertTrue(response["data"]["unresolved"])
 
-        with tempfile.TemporaryDirectory(prefix="kb2-clean-recover-", dir=r"D:\tmp") as clean_name:
+        with temporary_directory(prefix="kb2-clean-recover-") as clean_name:
             clean_root = Path(clean_name)
             (clean_root / "kb.yaml").write_text(
                 "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -1202,8 +1201,8 @@ class CaptureGardenSliceTests(unittest.TestCase):
         quarantine_root.mkdir(parents=True)
         corrections_root = self.root / "governance" / "corrections"
         corrections_root.mkdir(parents=True)
-        with tempfile.TemporaryDirectory(prefix="kb2-q-outside-", dir=r"D:\tmp") as q_name, tempfile.TemporaryDirectory(
-            prefix="kb2-c-outside-", dir=r"D:\tmp"
+        with temporary_directory(prefix="kb2-q-outside-") as q_name, temporary_directory(
+            prefix="kb2-c-outside-"
         ) as c_name:
             q_outside = Path(q_name)
             c_outside = Path(c_name)
@@ -1290,7 +1289,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
     def test_correction_prepared_and_claimed_crashes_replay_idempotently(self) -> None:
         for injection, expected_stage in (("fail_after_prepare", "prepared"), ("fail_after_claim", "claimed")):
             with self.subTest(injection=injection):
-                with tempfile.TemporaryDirectory(prefix="kb2-correction-replay-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-correction-replay-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text(
                         "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -1370,7 +1369,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
 
     @unittest.skipUnless(os.name == "nt", "Windows junction assertion")
     def test_ingress_junction_is_rejected(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="kb2-test-outside-", dir=r"D:\tmp") as outside_name:
+        with temporary_directory(prefix="kb2-test-outside-") as outside_name:
             outside = Path(outside_name)
             link = self.root / "ingress"
             made = subprocess.run(
@@ -1434,7 +1433,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
     def test_ingest_detects_post_scan_capture_owner_drift_without_secret_leak(self) -> None:
         for drift_metadata in (False, True):
             with self.subTest(drift_metadata=drift_metadata):
-                with tempfile.TemporaryDirectory(prefix="kb2-capture-snapshot-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-capture-snapshot-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text(
                         "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -1494,7 +1493,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
     def test_quarantine_base_missing_or_drift_is_sticky_and_preserves_owner(self) -> None:
         for mode in ("missing", "drift"):
             with self.subTest(mode=mode):
-                with tempfile.TemporaryDirectory(prefix="kb2-q-base-owner-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-q-base-owner-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text(
                         "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -1565,7 +1564,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
     def test_organize_detects_post_scan_garden_drift_and_fails_closed(self) -> None:
         for sensitive in (False, True):
             with self.subTest(sensitive=sensitive):
-                with tempfile.TemporaryDirectory(prefix="kb2-organize-cas-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-organize-cas-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text(
                         "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -1625,7 +1624,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
     def test_organize_postcondition_rechecks_garden_after_state_commit(self) -> None:
         for sensitive in (False, True):
             with self.subTest(sensitive=sensitive):
-                with tempfile.TemporaryDirectory(prefix="kb2-organize-postcondition-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-organize-postcondition-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text(
                         "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -1727,7 +1726,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
     def test_correction_capture_scan_drift_is_retained_and_never_reaches_garden(self) -> None:
         for drift_payload in (False, True):
             with self.subTest(drift_payload=drift_payload):
-                with tempfile.TemporaryDirectory(prefix="kb2-correction-snapshot-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-correction-snapshot-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text(
                         "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -2068,7 +2067,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
     def test_capture_metadata_update_prepared_claimed_installed_recovery_is_idempotent(self) -> None:
         for stage in ("prepared", "claimed", "installed"):
             with self.subTest(stage=stage):
-                with tempfile.TemporaryDirectory(prefix="kb2-capture-update-recovery-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-capture-update-recovery-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text(
                         "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -2163,7 +2162,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
     def test_capture_metadata_update_expected_owner_failures_are_sticky(self) -> None:
         for failure in ("missing", "drift", "invalid-json"):
             with self.subTest(failure=failure):
-                with tempfile.TemporaryDirectory(prefix="kb2-capture-update-expected-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-capture-update-expected-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text(
                         "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -2229,7 +2228,7 @@ class CaptureGardenSliceTests(unittest.TestCase):
         transaction = json.loads(transaction_path.read_text(encoding="utf-8"))
         expected_path = capture / transaction["expected_entry"]
         expected_path.unlink()
-        with tempfile.TemporaryDirectory(prefix="kb2-capture-update-expected-reparse-", dir=r"D:\tmp") as outside_name:
+        with temporary_directory(prefix="kb2-capture-update-expected-reparse-") as outside_name:
             outside = Path(outside_name)
             (outside / "sentinel.json").write_text("external expected owner", encoding="utf-8")
             before = self._tree_snapshot(outside)

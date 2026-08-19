@@ -7,7 +7,6 @@ import json
 import os
 from pathlib import Path
 import shutil
-import tempfile
 import unittest
 from contextlib import redirect_stdout
 from io import StringIO
@@ -15,6 +14,7 @@ from io import StringIO
 from kb2.cli import main
 from kb2 import release
 from kb2 import core
+from tests._temp_support import temporary_directory
 
 
 _EXAMPLE_AWS_SECRET = b"AKIA" + b"1234567890ABCDEF"
@@ -22,7 +22,7 @@ _EXAMPLE_AWS_SECRET = b"AKIA" + b"1234567890ABCDEF"
 
 class CliReleaseTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory(prefix="kb2-cli-root-", dir=r"D:\tmp")
+        self.temp = temporary_directory(prefix="kb2-cli-root-")
         self.root = Path(self.temp.name)
         (self.root / "kb.yaml").write_text(
             "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",

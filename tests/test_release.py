@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import tempfile
 import threading
 import unittest
 from unittest import mock
@@ -23,6 +22,7 @@ from kb2.release import (
     _release_lock,
     release_candidate,
 )
+from tests._temp_support import make_temporary_directory, temporary_directory
 
 
 _EXAMPLE_AWS_SECRET = b"AKIA" + b"1234567890ABCDEF"
@@ -31,7 +31,7 @@ _EXAMPLE_PRIVATE_KEY_HEADER = b"-----BEGIN " + b"PRIVATE KEY-----"
 
 class ReleaseSliceTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory(prefix="kb2-release-root-", dir=r"D:\tmp")
+        self.temp = temporary_directory(prefix="kb2-release-root-")
         self.root = Path(self.temp.name)
         (self.root / "kb.yaml").write_text(
             "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -222,7 +222,7 @@ class ReleaseSliceTests(unittest.TestCase):
         candidate = self.candidate(candidate_id="CAND-GARDEN-REPARSE", idempotency_key="idem-garden-reparse")
         notes = self.root / "garden" / "notes"
         shutil.rmtree(notes)
-        outside = Path(tempfile.mkdtemp(prefix="kb2-garden-reparse-target-", dir=r"D:\tmp"))
+        outside = Path(make_temporary_directory(prefix="kb2-garden-reparse-target-"))
         try:
             garden_name = json.loads(candidate.owner_path.read_text(encoding="utf-8"))["source_garden_ref"].removeprefix("garden://notes/")
             (outside / garden_name).write_bytes(candidate.path.read_bytes())
@@ -464,7 +464,7 @@ class ReleaseSliceTests(unittest.TestCase):
         }
         for name, anchor in cases.items():
             with self.subTest(case=name):
-                with tempfile.TemporaryDirectory(prefix="kb2-release-root-contract-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-release-root-contract-") as root_name:
                     root = Path(root_name)
                     if anchor is not None:
                         (root / "kb.yaml").write_text(anchor, encoding="utf-8")
@@ -530,7 +530,7 @@ class ReleaseSliceTests(unittest.TestCase):
         with self.assertRaisesRegex(ReleaseError, "duplicate|ambiguous|bundle|artifact"):
             release_candidate(self.root, first)
 
-        with tempfile.TemporaryDirectory(prefix="kb2-release-bundle-name-", dir=r"D:\tmp") as root_name:
+        with temporary_directory(prefix="kb2-release-bundle-name-") as root_name:
             root = Path(root_name)
             (root / "kb.yaml").write_text(
                 "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -613,7 +613,7 @@ class ReleaseSliceTests(unittest.TestCase):
     @unittest.skipUnless(os.environ.get("KB2_RELEASE_STRESS") == "1", "opt-in stress")
     def test_24_way_same_key_converges_for_three_rounds_and_different_keys_do_not_interfere(self) -> None:
         for round_number in range(3):
-            with tempfile.TemporaryDirectory(prefix="kb2-release-24way-", dir=r"D:\tmp") as root_name:
+            with temporary_directory(prefix="kb2-release-24way-") as root_name:
                 root = Path(root_name)
                 (root / "kb.yaml").write_text(
                     "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -709,7 +709,7 @@ class ReleaseSliceTests(unittest.TestCase):
         with self.assertRaisesRegex(ReleaseError, "tamper"):
             release_candidate(self.root, candidate)
 
-        with tempfile.TemporaryDirectory(prefix="kb2-release-metadata-tamper-", dir=r"D:\tmp") as metadata_name:
+        with temporary_directory(prefix="kb2-release-metadata-tamper-") as metadata_name:
             metadata_root = Path(metadata_name)
             (metadata_root / "kb.yaml").write_text(
                 "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -726,7 +726,7 @@ class ReleaseSliceTests(unittest.TestCase):
             with self.assertRaisesRegex(ReleaseError, "partial|bind"):
                 release_candidate(metadata_root, metadata_candidate)
 
-        with tempfile.TemporaryDirectory(prefix="kb2-release-receipt-tamper-", dir=r"D:\tmp") as receipt_name:
+        with temporary_directory(prefix="kb2-release-receipt-tamper-") as receipt_name:
             receipt_root = Path(receipt_name)
             (receipt_root / "kb.yaml").write_text(
                 "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -743,7 +743,7 @@ class ReleaseSliceTests(unittest.TestCase):
             with self.assertRaisesRegex(ReleaseError, "partial|bind"):
                 release_candidate(receipt_root, receipt_candidate)
 
-        with tempfile.TemporaryDirectory(prefix="kb2-release-partial-", dir=r"D:\tmp") as partial_name:
+        with temporary_directory(prefix="kb2-release-partial-") as partial_name:
             partial_root = Path(partial_name)
             (partial_root / "kb.yaml").write_text(
                 "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -765,7 +765,7 @@ class ReleaseSliceTests(unittest.TestCase):
 
     def test_reparse_foreign_lock_and_pointer_are_rejected(self) -> None:
         candidate = self.candidate()
-        outside = Path(tempfile.mkdtemp(prefix="kb2-release-outside-", dir=r"D:\tmp"))
+        outside = Path(make_temporary_directory(prefix="kb2-release-outside-"))
         try:
             foreign_source = outside / "candidate.bin"
             foreign_source.write_bytes(b"foreign")
@@ -814,7 +814,7 @@ class ReleaseSliceTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Windows junction assertion")
     def test_reparse_candidate_lock_and_pointer_are_rejected(self) -> None:
         candidate = self.candidate()
-        outside = Path(tempfile.mkdtemp(prefix="kb2-release-reparse-outside-", dir=r"D:\tmp"))
+        outside = Path(make_temporary_directory(prefix="kb2-release-reparse-outside-"))
         try:
             link = self.root / "reparse-candidates"
             made = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(outside)], capture_output=True)
@@ -842,7 +842,7 @@ class ReleaseSliceTests(unittest.TestCase):
 
         release_dir = self.root / "released"
         release_dir.mkdir()
-        lock_target = Path(tempfile.mkdtemp(prefix="kb2-release-lock-target-", dir=r"D:\tmp"))
+        lock_target = Path(make_temporary_directory(prefix="kb2-release-lock-target-"))
         try:
             lock_link = release_dir / ".release.lock"
             made = subprocess.run(["cmd", "/c", "mklink", "/J", str(lock_link), str(lock_target)], capture_output=True)
@@ -855,7 +855,7 @@ class ReleaseSliceTests(unittest.TestCase):
                 (release_dir / ".release.lock").rmdir()
             shutil.rmtree(lock_target)
 
-        pointer_target = Path(tempfile.mkdtemp(prefix="kb2-release-pointer-target-", dir=r"D:\tmp"))
+        pointer_target = Path(make_temporary_directory(prefix="kb2-release-pointer-target-"))
         try:
             pointer_dir = release_dir / "idempotency"
             pointer_dir.mkdir(exist_ok=True)
@@ -896,7 +896,7 @@ class ReleaseSliceTests(unittest.TestCase):
         )
         for name, media_type, content in cases:
             with self.subTest(case=name):
-                with tempfile.TemporaryDirectory(prefix="kb2-release-text-", dir=r"D:\tmp") as root_name:
+                with temporary_directory(prefix="kb2-release-text-") as root_name:
                     root = Path(root_name)
                     (root / "kb.yaml").write_text(
                         "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",

@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import tempfile
 import unittest
 from unittest import mock
 
@@ -13,6 +12,7 @@ import kb2.core as core
 import kb2.context as context_core
 from kb2.release import Candidate, release_candidate
 from kb2.result import KbError
+from tests._temp_support import make_temporary_directory, temporary_directory
 
 
 _EXAMPLE_OPENAI_SECRET = "sk-" + "abcdefghijklmnopqrstuvwxyz123456"
@@ -21,8 +21,7 @@ _EXAMPLE_MALFORMED_SECRET = "sk-" + "raw-malformed-secret-1234567890"
 
 class BootstrapSliceTests(unittest.TestCase):
     def setUp(self) -> None:
-        Path(r"D:\tmp").mkdir(parents=True, exist_ok=True)
-        self.temp = tempfile.TemporaryDirectory(prefix="kb2-bootstrap-root-", dir=r"D:\tmp")
+        self.temp = temporary_directory(prefix="kb2-bootstrap-root-")
         self.root = Path(self.temp.name)
         (self.root / "kb.yaml").write_text(
             "schema: kb-root/v0.1\nid: KB-01KZPQC53JGD8174JZEEVACPJK\n",
@@ -218,11 +217,16 @@ class BootstrapSliceTests(unittest.TestCase):
     def test_search_rejects_identity_drift_and_relative_absolute_roots_match(self) -> None:
         published, _ = self._publish_artifact()
         absolute = bootstrap.build(self.root)
-        relative = Path(os.path.relpath(self.root, Path.cwd()))
-        self.assertEqual(
-            bootstrap.find(relative, published.artifact_id)["matches"],
-            bootstrap.find(self.root, published.artifact_id)["matches"],
-        )
+        previous = Path.cwd()
+        try:
+            os.chdir(self.root.parent)
+            relative = Path(self.root.name)
+            self.assertEqual(
+                bootstrap.find(relative, published.artifact_id)["matches"],
+                bootstrap.find(self.root, published.artifact_id)["matches"],
+            )
+        finally:
+            os.chdir(previous)
         search_path = self.root / "generated" / "bootstrap" / absolute["generation"] / "search.jsonl"
         row = json.loads(search_path.read_text(encoding="utf-8").splitlines()[0])
         original = dict(row)
@@ -501,7 +505,7 @@ class BootstrapSliceTests(unittest.TestCase):
             bootstrap.find(self.root, "promotion baseline")
         self.assertEqual(raised.exception.code, "KB2_BOOTSTRAP_PROJECTION_STALE")
 
-        with tempfile.TemporaryDirectory(prefix="kb2-bootstrap-first-failure-", dir=r"D:\tmp") as name:
+        with temporary_directory(prefix="kb2-bootstrap-first-failure-") as name:
             first_root = Path(name)
             self._write_anchor(first_root)
             with mock.patch.object(bootstrap.core, "_replace_file_after_sync", side_effect=fail_current):
@@ -514,7 +518,7 @@ class BootstrapSliceTests(unittest.TestCase):
             self.assertFalse(generations_root.exists() and any(generations_root.iterdir()))
 
     def test_reparse_fact_directory_is_rejected_before_external_read(self) -> None:
-        outside = Path(tempfile.mkdtemp(prefix="kb2-bootstrap-outside-", dir=r"D:\tmp"))
+        outside = Path(make_temporary_directory(prefix="kb2-bootstrap-outside-"))
         notes = self.root / "garden" / "notes"
         try:
             (outside / "CAP-01KZPQC53JGD8174JZEEVACPJK.md").write_text("external", encoding="utf-8")
