@@ -1,0 +1,8 @@
+schema: kb-root/v0.1
+id: KB-01KZPQC53JGD8174JZEEVACPJK
+title: 个人知识库 2.0
+default_locale: zh-CN
+protocol: PROTOCOL.md
+capture_spool: ingress/pending/
+override_store: governance/overrides/
+

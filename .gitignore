@@ -1,0 +1,35 @@
+# Local knowledge and runtime state
+/.kb2/
+/contexts/
+/garden/
+/generated/
+/governance/
+/ingress/
+/released/
+
+# Local execution history and acceptance transcripts
+/evidence/
+/LOG.md
+/V0.1初版冲刺约束.md
+/知识库2.0持续搭建-goal.md
+/docs/evidence/
+/docs/internal/
+
+# Python caches and local environments
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local tooling and editor state
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.vscode/
+.idea/
+*.log
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
